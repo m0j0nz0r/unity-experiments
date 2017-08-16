@@ -192,7 +192,10 @@ public class MeshUtils : MonoBehaviour
 		//TODO : Are we missing anything?
 		return clone;
 	}
+
 	public static void Weld(Mesh mesh, float bucketStep = 1f){
+		if (mesh.vertices.Length == 0 || bucketStep <= 0f)
+			return;
 		Vector3[] oldVertices = mesh.vertices;
 		Vector3[] newVertices = new Vector3[oldVertices.Length];
 		int[] old2new = new int[oldVertices.Length];
@@ -217,7 +220,7 @@ public class MeshUtils : MonoBehaviour
 		int bucketSizeX = Mathf.FloorToInt ((max.x - min.x) / bucketStep) + 1;
 		int bucketSizeY = Mathf.FloorToInt ((max.y - min.y) / bucketStep) + 1;
 		int bucketSizeZ = Mathf.FloorToInt ((max.z - min.z) / bucketStep) + 1;
-			
+		//Debug.Log(string.Format("x: {0}\ty: {1}\tz: {2}", bucketStep, max.x, min.y));
 		List<int>[,,] buckets = new List<int>[bucketSizeX, bucketSizeY, bucketSizeZ];
 
 		//make new vertices

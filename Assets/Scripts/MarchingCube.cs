@@ -2,14 +2,25 @@
 using System.Collections.Generic;
 using UnityEngine;
 using System.IO;
+/* *    
+ *      7-----6   
+ *     /|    /|
+ *    / |   / |
+ *   3--+--2  |
+ *   |  |  |  |
+ *   |  |  |  |
+ *   |  4--+--5
+ *   | /   | /
+ *   |/    |/
+ *   0-----1 
+ * 
+ * */
 
 public class MarchingCube : MonoBehaviour {
-	public int[,,] scalarField;
-	public Gridcell[,,] grid;
-	public int iso;
-
+	public int 	iso;
+	public int chunkSize;
 	private Vector3[][] gridLines;
-	private int[,] offsets = {
+	private static int[,] offsets = {
 		{0,0,0 },//0
 		{1,0,0 },//1
 		{1,1,0 },//2
@@ -19,7 +30,7 @@ public class MarchingCube : MonoBehaviour {
 		{1,1,1 },//6
 		{0,1,1 } //7
 	};
-	private int[,] tet = new int[,]{
+	private static int[,] tet = new int[,]{
 		{0,1,2,6},//0
 		{0,2,3,6},//1
 		{0,3,7,6},//2
@@ -33,30 +44,11 @@ public class MarchingCube : MonoBehaviour {
 		public int[] val;
 	}
 
-	static bool Vector3LessThan(Vector3 left, Vector3 right){
-		if (left.x < right.x) {
-			return true;
-		} else if (left.x > right.x) {
-			return false;
-		}
-		if (left.y < right.y) {
-			return true;
-		} else if (left.y > right.y) {
-			return false;
-		}
-		if (left.z < right.z) {
-			return true;
-		} else if (left.z > right.z) {
-			return false;
-		}
-		return false;
-	}
-
-	Vector3 InterpolateVertex(float iso, Vector3 p1, Vector3 p2, float valp1, float valp2){
-        return Vector3.Lerp(p1, p2, Mathf.Abs((valp1 - valp2) / (2 * (valp1 + valp2)))); 
+	static Vector3 InterpolateVertex(float iso, Vector3 p1, Vector3 p2, float valp1, float valp2){
+        return Vector3.Lerp(p1, p2, ((valp1 - valp2) / (valp1 + valp2)) + .5f); 
     }
 
-	Mesh PoligoniseTri(Gridcell g, float iso, int[,] tet, int tetIndex){
+	static Mesh PoligoniseTri(Gridcell g, float iso, int[,] tet, int tetIndex){
 		int triIndex = 0;
 		Mesh mesh = new Mesh ();
 		Vector3 pv0 = g.p [tet[tetIndex, 0]];
@@ -112,7 +104,6 @@ public class MarchingCube : MonoBehaviour {
 			    break;
 		    case 0x0C:
 		    case 0x03:
-                //needs more testing.
                 mesh.vertices = new Vector3[] {
 				    InterpolateVertex (iso, pv3, pv1, vv3, vv1),
 				    InterpolateVertex (iso, pv0, pv3, vv0, vv3),
@@ -143,7 +134,6 @@ public class MarchingCube : MonoBehaviour {
 			    break;
 		    case 0xA:
 		    case 0x5:
-                //needs more testing.
                 mesh.vertices = new Vector3[] {
 				    InterpolateVertex (iso, pv0, pv3, vv0, vv3),
 				    InterpolateVertex (iso, pv2, pv3, vv2, vv3),
@@ -160,7 +150,6 @@ public class MarchingCube : MonoBehaviour {
 			    break;
 		    case 0x9:
 		    case 0x6:
-                //needs more testing.
                 mesh.vertices = new Vector3[] {
 				    InterpolateVertex (iso, pv0, pv1, vv0, vv1),
 				    InterpolateVertex (iso, pv0, pv2, vv0, vv2),
@@ -194,7 +183,6 @@ public class MarchingCube : MonoBehaviour {
 	}
 
 	void DrawGrid(){
-        //initDrawGrid();
         Color c;
 		foreach (Vector3[] row in gridLines) {
             /**
@@ -210,73 +198,73 @@ public class MarchingCube : MonoBehaviour {
             
 		}
 	}
-	void initDrawGrid(){
-        int nx = this.grid.GetLength(0);
-        int ny = this.grid.GetLength(1);
-        int nz = this.grid.GetLength(2);
+	void initDrawGrid(Gridcell[,,] inputGrid){
+		int nx = inputGrid.GetLength(0);
+		int ny = inputGrid.GetLength(1);
+		int nz = inputGrid.GetLength(2);
 		List<Vector3[]> grid = new List<Vector3[]> ();
 		for (int z = 0; z < nz; z++){
 			for (int y = 0; y < ny; y++) {
 				grid.Add (new Vector3[]{ 
-                    this.grid[0,y,z].p[0],
-                    this.grid[nx-1,y,z].p[1]
+					inputGrid[0,y,z].p[0],
+					inputGrid[nx-1,y,z].p[1]
 				});
             }
             for (int x = 0; x < nx; x++) {
 				grid.Add (new Vector3[]{
-                    this.grid[x,0,z].p[0],
-                    this.grid[x,ny-1,z].p[3]
+					inputGrid[x,0,z].p[0],
+					inputGrid[x,ny-1,z].p[3]
 				});
 			}
 
             grid.Add(new Vector3[] {
-                    this.grid[0, ny-1, z].p[3],
-                    this.grid[nx-1, ny-1, z].p[2]
-                });
+				inputGrid[0, ny-1, z].p[3],
+				inputGrid[nx-1, ny-1, z].p[2]
+            });
             grid.Add(new Vector3[] {
-                    this.grid[nx-1, 0, z].p[1],
-                    this.grid[nx-1, ny-1, z].p[2]
-                });
+				inputGrid[nx-1, 0, z].p[1],
+				inputGrid[nx-1, ny-1, z].p[2]
+			});
         }
         for (int x = 0; x < nx; x++) {
 			for (int y = 0; y < ny; y++) {
 				grid.Add (new Vector3[]{
-                    this.grid[x,y,0].p[0],
-                    this.grid[x,y,nz-1].p[4]
+					inputGrid[x,y,0].p[0],
+					inputGrid[x,y,nz-1].p[4]
 				});
 			}
             grid.Add(new Vector3[]{
-                    this.grid[x,0,nz-1].p[4],
-                    this.grid[x,ny-1,nz-1].p[7]
-                });
+				inputGrid[x,0,nz-1].p[4],
+				inputGrid[x,ny-1,nz-1].p[7]
+			});
             grid.Add(new Vector3[]{
-                    this.grid[x,ny-1,0].p[3],
-                    this.grid[x,ny-1,nz-1].p[7]
-                });
+				inputGrid[x,ny-1,0].p[3],
+				inputGrid[x,ny-1,nz-1].p[7]
+			});
         }
         for (int y = 0; y < ny; y++)
         {
             grid.Add(new Vector3[] {
-                    this.grid[0, y, nz-1].p[4],
-                    this.grid[nx-1, y, nz-1].p[5]
-                });
+				inputGrid[0, y, nz-1].p[4],
+				inputGrid[nx-1, y, nz-1].p[5]
+			});
             grid.Add(new Vector3[] {
-                    this.grid[nx-1, y, 0].p[1],
-                    this.grid[nx-1, y, nz-1].p[5]
-                });
+				inputGrid[nx-1, y, 0].p[1],
+				inputGrid[nx-1, y, nz-1].p[5]
+			});
         }
         grid.Add(new Vector3[] {
-                    this.grid[0, ny-1, nz-1].p[7],
-                    this.grid[nx-1, ny-1, nz-1].p[6]
-                });
+			inputGrid[0, ny-1, nz-1].p[7],
+			inputGrid[nx-1, ny-1, nz-1].p[6]
+		});
         grid.Add(new Vector3[] {
-                    this.grid[nx-1, 0, nz-1].p[5],
-                    this.grid[nx-1, ny-1, nz-1].p[6]
-                });
+			inputGrid[nx-1, 0, nz-1].p[5],
+			inputGrid[nx-1, ny-1, nz-1].p[6]
+		});
         grid.Add(new Vector3[] {
-                    this.grid[nx-1, ny-1, 0].p[2],
-                    this.grid[nx-1, ny-1, nz-1].p[6]
-                });
+			inputGrid[nx-1, ny-1, 0].p[2],
+			inputGrid[nx-1, ny-1, nz-1].p[6]
+		});
         gridLines = grid.ToArray ();
 	}
 	int[,,] LoadData() {
@@ -304,7 +292,7 @@ public class MarchingCube : MonoBehaviour {
 		return byteArray;
     }
 
-    Gridcell[,,] makeGrid(int[,,] c) {
+    public static Gridcell[,,] makeGrid(int[,,] c) {
         int thisByte;
         int nx = c.GetLength(0);
         int ny = c.GetLength(1);
@@ -376,66 +364,157 @@ public class MarchingCube : MonoBehaviour {
 		}
 		return targetGrid;
 	}
-    void Update(){
-		DrawGrid ();
-    }
-    void testGrid() {
-		test1();
-    }
     void Start(){
-		scalarField = new int [,,] {
+		int [,,] scalarField = new int [,,] {
 			{
-				{ 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
-				{ 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
-				{ 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
-				{ 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
-				{ 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
-				{ 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
-				{ 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
-				{ 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
-				{ 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
+				{ 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
+				{ 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
+				{ 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
+				{ 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
+				{ 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
+				{ 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
+				{ 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
+				{ 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
+				{ 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
 			},
 			{
-				{ 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
-				{ 0,0,0,1,0,0,0,0,1,1,1,0,0,0,1,1,1,0,0,0,0,1,1,0,0,0,1,1,1,0,0,1,0,0,0,0,0,0,0,0,0,0},
-				{ 0,0,1,0,1,0,0,0,0,1,0,0,0,1,0,0,0,1,0,0,1,0,0,1,0,1,0,0,0,1,0,1,0,0,0,0,0,0,0,0,0,0},
-				{ 0,1,0,0,0,1,0,0,0,1,0,0,0,1,0,0,0,0,0,0,1,0,0,0,0,1,0,0,0,1,0,1,0,0,0,0,0,0,0,0,0,0},
-				{ 0,1,0,0,0,1,0,0,0,1,0,0,0,1,0,0,0,0,0,0,1,0,0,0,0,1,0,0,0,1,0,1,1,0,0,1,0,0,0,0,0,0},
-				{ 0,1,0,0,0,1,0,0,1,1,0,0,0,0,1,1,1,0,0,1,1,1,0,0,0,0,1,1,1,0,0,1,0,1,1,0,0,0,0,0,0,0},
-				{ 0,1,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
-				{ 0,1,0,0,0,1,0,0,0,1,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
-				{ 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
+				{ 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
+				{ 0,0,1,1,1,0,0,0,1,1,0,0,0,0,1,1,1,0,0,0,1,1,1,1,0,0,1,1,1,1,0,0,1,1,1,0,0,0,0,1,1,0,0},
+				{ 0,0,0,0,0,1,0,1,0,0,1,0,0,0,0,1,0,0,0,1,0,0,0,0,0,1,0,0,0,1,0,1,0,0,0,1,0,0,1,0,0,1,0},
+				{ 0,0,1,1,1,1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1,1,1,0,0,1,0,0,0,1,0,1,0,0,0,1,0,0,1,0,0,0,0},
+				{ 0,1,0,0,0,1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,0,0,0,1,0,1,0,0,1,1,0,1,0,0,0,1,0,0,1,0,0,0,0},
+				{ 0,1,0,0,0,1,0,0,0,1,1,1,0,0,1,1,0,0,0,0,1,1,1,0,0,0,1,1,0,1,0,0,1,1,1,0,0,0,1,0,0,0,0},
+				{ 0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,1,0,0,0,0},
+				{ 0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,1,1,1,0,0,0},
+				{ 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
 			},
 			{
-				{ 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
-				{ 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
-				{ 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
-				{ 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
-				{ 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
-				{ 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
-				{ 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
-				{ 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
-				{ 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
+				{ 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
+				{ 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
+				{ 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
+				{ 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
+				{ 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
+				{ 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
+				{ 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
+				{ 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
+				{ 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
 			},
 		};
-        scalarField = LoadData();
-		while (scalarField.Length > 12000)//8125
-        {
-			Debug.Log (scalarField.Length);
-			scalarField = ReduceData(scalarField);
-        }
-		grid = makeGrid (scalarField);
-		initDrawGrid ();
-        test1();
+		if (chunkSize <= 0)
+			chunkSize = 16;
+		scalarField = ReduceData(LoadData());
+		//subdivide scalarField in chunkSize^3 chunks
+		chunks = getChunks(scalarField, chunkSize);
+		//create 1 child object per chunk with a mesh renderer
+		//makeChildren(chunks);
+		//make and assign meshes to each chunk.
+		//grid = makeGrid (scalarField);
+		//initDrawGrid ();
+		//updateMesh();
 	}
-	public Mesh CombineMeshArray(Mesh[] MeshArray){
+	private int[,,][,,] chunks;
+	private int currentChunkX = 0;
+	private int currentChunkY = 0;
+	private int currentChunkZ = 0;
+
+	private void makeChildren (int [,,][,,] chunks) {
+		int x,y,z;
+		int xMax = chunks.GetLength (0);
+		int yMax = chunks.GetLength (1);
+		int zMax = chunks.GetLength (2);
+		GameObject child;
+		MeshRenderer meshRenderer;
+		MeshFilter meshFilter;
+		Mesh mesh;
+		for (x = 0; x < xMax; x++) {
+			for (y = 0; y < yMax; y++) {
+				for (z = 0; z < zMax; z++) { //160
+					child = new GameObject ();
+					child.transform.parent = transform;
+					child.transform.position = transform.position + new Vector3 (x, y, z) * chunkSize;
+					meshRenderer = child.AddComponent<MeshRenderer> ();
+					meshRenderer.materials = GetComponent<MeshRenderer> ().materials;
+					meshFilter = child.AddComponent<MeshFilter> ();
+					mesh = makeMesh (makeGrid (chunks[x,y,z]), iso, transform.localToWorldMatrix);
+					MeshUtils.Weld (mesh);
+					meshFilter.mesh = mesh;
+				}
+			}
+		}
+	}
+	private bool doneLoading = false;
+	void Update(){
+		if (!doneLoading) {
+			int xMax = chunks.GetLength (0);
+			int yMax = chunks.GetLength (1);
+			int zMax = chunks.GetLength (2);
+			GameObject child;
+			MeshRenderer meshRenderer;
+			MeshFilter meshFilter;
+			Mesh mesh;
+			child = new GameObject ();
+			child.transform.parent = transform;
+			child.transform.position = transform.position + new Vector3 (currentChunkX, currentChunkY, currentChunkZ) * chunkSize;
+			meshRenderer = child.AddComponent<MeshRenderer> ();
+			meshRenderer.materials = GetComponent<MeshRenderer> ().materials;
+			meshFilter = child.AddComponent<MeshFilter> ();
+			mesh = makeMesh (makeGrid (chunks [currentChunkX, currentChunkY, currentChunkZ]), iso, transform.localToWorldMatrix);
+			MeshUtils.Weld (mesh);
+			meshFilter.mesh = mesh;
+			if (currentChunkZ < zMax - 1) {
+				currentChunkZ++;
+			} else {
+				currentChunkZ = 0;
+				if (currentChunkY < yMax - 1) {
+					currentChunkY++;
+				} else {
+					currentChunkY = 0;
+					if (currentChunkX < xMax - 1) {
+						currentChunkX++;
+					} else {
+						doneLoading = true;
+						Debug.Log ("Done");
+					}
+				}
+			}
+		}
+	}
+
+	private int [,,][,,] getChunks(int [,,] array, int chunkSize) {
+		int arrayX = array.GetLength (0);
+		int arrayY = array.GetLength (1);
+		int arrayZ = array.GetLength (2);
+		int chunkMaxX = Mathf.CeilToInt ((float)arrayX / chunkSize);
+		int chunkMaxY = Mathf.CeilToInt ((float)arrayY / chunkSize);
+		int chunkMaxZ = Mathf.CeilToInt ((float)arrayZ / chunkSize);
+		int[,,][,,] returnValue = new int[chunkMaxX, chunkMaxY, chunkMaxZ][,,];
+		int x, y, z, chunkX, chunkY, chunkZ, arrX, arrY, arrZ;
+		bool isOutOfBounds;
+		for (chunkX = 0; chunkX < chunkMaxX; chunkX++) {
+			for (chunkY = 0; chunkY < chunkMaxY; chunkY++) {
+				for (chunkZ = 0; chunkZ < chunkMaxZ; chunkZ++) {
+					returnValue [chunkX, chunkY, chunkZ] = new int[chunkSize, chunkSize, chunkSize];
+					for (x = 0; x < chunkSize; x++) {
+						for (y = 0; y < chunkSize; y++) {
+							for (z = 0; z < chunkSize; z++) {
+								arrX = chunkX * chunkSize + x;
+								arrY = chunkY * chunkSize + y;
+								arrZ = chunkZ * chunkSize + z;
+								isOutOfBounds = arrX >= arrayX || arrY >= arrayY || arrZ >= arrayZ;
+								returnValue [chunkX, chunkY, chunkZ] [x, y, z] = isOutOfBounds ? 0 : array [arrX, arrY, arrZ];
+							}
+						}
+					}
+				}
+			}
+		}
+		return returnValue;
+	}
+	static public Mesh CombineMeshArray(Mesh[] MeshArray, Matrix4x4 worldTransform) {
         CombineInstance[] combine = new CombineInstance[MeshArray.Length];
         Mesh result = new Mesh();
-		Matrix4x4 worldTransform = this.transform.localToWorldMatrix;
-        for (int i = 0; i < MeshArray.Length; i++)
-        {
-            if (MeshArray[i] != null)
-            {
+        for (int i = 0; i < MeshArray.Length; i++) {
+            if (MeshArray[i] != null) {
                 combine[i].mesh = MeshArray[i];
 				combine[i].transform = worldTransform;
             }
@@ -445,23 +524,7 @@ public class MarchingCube : MonoBehaviour {
 
         return result;
 	}
-    /**    7-----6   
-     *    /|    /|
-     *   / |   / |
-     *  3--+--2  |
-     *  |  |  |  |
-     *  |  |  |  |
-     *  |  4--+--5
-     *  | /   | /
-     *  |/    |/
-     *  0-----1 
-     * 
-     * */
-
-    public void test1(){
-		updateMesh();
-	}
-	void updateMesh(){
+	public static Mesh makeMesh(Gridcell[,,] grid, int iso, Matrix4x4 worldTransform) {
 		int nx = grid.GetLength(0);
 		int ny = grid.GetLength(1);
 		int nz = grid.GetLength(2);
@@ -475,16 +538,26 @@ public class MarchingCube : MonoBehaviour {
 					cell = grid [x, y, z];
 					for (int i = 0; i < tet.GetLength(0); i++) {
 						currentMesh = PoligoniseTri(cell, iso, tet, i);
-						if (currentMesh != null)
-						{
+						if (currentMesh != null) {
 							MeshList.Add(currentMesh);
 						}
 					}
 				}
 			}
 		}
+		return CombineMeshArray (MeshList.ToArray (), worldTransform);
+	}
+
+	void updateMesh(int [,,] scalarField) {
+		Gridcell[,,] grid = makeGrid (scalarField);
 		MeshFilter m = GetComponent<MeshFilter>();
-		m.mesh = CombineMeshArray(MeshList.ToArray());
-		MeshUtils.Weld (m.mesh);
+		try {
+			//if the mesh is too big to be combined/welded, reduce it and try again.
+			m.mesh = makeMesh(grid, iso, this.transform.localToWorldMatrix);
+			MeshUtils.Weld (m.mesh);
+		}
+		catch(System.Exception e) {
+			updateMesh (ReduceData (scalarField));
+		}
 	}
 }

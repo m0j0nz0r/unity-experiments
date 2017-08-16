@@ -199,6 +199,7 @@
      <Compile Include="Assets\Scripts\CameraControler.cs" />
      <Compile Include="Assets\Scripts\GameManager.cs" />
      <Compile Include="Assets\Scripts\Launcher.cs" />
+     <Compile Include="Assets\Scripts\MakeMeshJob.cs" />
      <Compile Include="Assets\Scripts\Manager.cs" />
      <Compile Include="Assets\Scripts\MarchingCube.cs" />
      <Compile Include="Assets\Scripts\MeshUtils.cs" />
@@ -209,6 +210,7 @@
      <Compile Include="Assets\Scripts\SmoothFilter.cs" />
      <Compile Include="Assets\Scripts\SmoothFollow.cs" />
      <Compile Include="Assets\Scripts\Targetable.cs" />
+     <Compile Include="Assets\Scripts\ThreadedJob.cs" />
      <None Include="Assets\Photon Unity Networking\Demos\MarcoPolo-Tutorial\marcopolo-readme.txt" />
      <None Include="Assets\Photon Unity Networking\link.xml" />
      <None Include="Assets\OutlineEffect\Resources\OutlineShader.shader" />
