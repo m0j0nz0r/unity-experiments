@@ -320,16 +320,20 @@ public class MarchingCube : MonoBehaviour {
                 }
             }
         }
-        for (int z = 0; z < nz - 1; z++)
+        for (int z = 0; z < nz; z++)
         {
-            for (int y = 0; y < ny - 1; y++)
+            for (int y = 0; y < ny; y++)
             {
-                for (int x = 0; x < nx - 1; x++)
+                for (int x = 0; x < nx; x++)
                 {
                     thisCell = result[x, y, z];
                     for (int i = 0; i < 8; i++)
                     {
-                        thisCell.val[i] = c[x + offsets[i, 0], y + offsets[i, 1], z + offsets[i, 2]];
+                        thisCell.val[i] = c[
+							x == nx - 1 ? x : x + offsets[i, 0],
+							y == ny - 1 ? y : y + offsets[i, 1],
+							z == nz - 1 ? z : z + offsets[i, 2]
+						];
                     }
                 }
             }
@@ -402,46 +406,14 @@ public class MarchingCube : MonoBehaviour {
 		};
 		if (chunkSize <= 0)
 			chunkSize = 16;
-		scalarField = ReduceData(LoadData());
+		scalarField = ReduceData(ReduceData(LoadData()));
 		//subdivide scalarField in chunkSize^3 chunks
-		chunks = getChunks(scalarField, chunkSize);
-		//create 1 child object per chunk with a mesh renderer
-		//makeChildren(chunks);
-		//make and assign meshes to each chunk.
-		//grid = makeGrid (scalarField);
-		//initDrawGrid ();
-		//updateMesh();
+		chunks = getChunks<Gridcell>(makeGrid(scalarField), chunkSize);
 	}
-	private int[,,][,,] chunks;
+	private Gridcell[,,][,,] chunks;
 	private int currentChunkX = 0;
 	private int currentChunkY = 0;
 	private int currentChunkZ = 0;
-
-	private void makeChildren (int [,,][,,] chunks) {
-		int x,y,z;
-		int xMax = chunks.GetLength (0);
-		int yMax = chunks.GetLength (1);
-		int zMax = chunks.GetLength (2);
-		GameObject child;
-		MeshRenderer meshRenderer;
-		MeshFilter meshFilter;
-		Mesh mesh;
-		for (x = 0; x < xMax; x++) {
-			for (y = 0; y < yMax; y++) {
-				for (z = 0; z < zMax; z++) { //160
-					child = new GameObject ();
-					child.transform.parent = transform;
-					child.transform.position = transform.position + new Vector3 (x, y, z) * chunkSize;
-					meshRenderer = child.AddComponent<MeshRenderer> ();
-					meshRenderer.materials = GetComponent<MeshRenderer> ().materials;
-					meshFilter = child.AddComponent<MeshFilter> ();
-					mesh = makeMesh (makeGrid (chunks[x,y,z]), iso, transform.localToWorldMatrix);
-					MeshUtils.Weld (mesh);
-					meshFilter.mesh = mesh;
-				}
-			}
-		}
-	}
 	private bool doneLoading = false;
 	void Update(){
 		if (!doneLoading) {
@@ -454,11 +426,11 @@ public class MarchingCube : MonoBehaviour {
 			Mesh mesh;
 			child = new GameObject ();
 			child.transform.parent = transform;
-			child.transform.position = transform.position + new Vector3 (currentChunkX, currentChunkY, currentChunkZ) * chunkSize;
+			child.transform.position = transform.position;
 			meshRenderer = child.AddComponent<MeshRenderer> ();
 			meshRenderer.materials = GetComponent<MeshRenderer> ().materials;
 			meshFilter = child.AddComponent<MeshFilter> ();
-			mesh = makeMesh (makeGrid (chunks [currentChunkX, currentChunkY, currentChunkZ]), iso, transform.localToWorldMatrix);
+			mesh = makeMesh (chunks [currentChunkX, currentChunkY, currentChunkZ], iso, this.transform.localToWorldMatrix);
 			MeshUtils.Weld (mesh);
 			meshFilter.mesh = mesh;
 			if (currentChunkZ < zMax - 1) {
@@ -473,35 +445,32 @@ public class MarchingCube : MonoBehaviour {
 						currentChunkX++;
 					} else {
 						doneLoading = true;
-						Debug.Log ("Done");
 					}
 				}
 			}
 		}
 	}
 
-	private int [,,][,,] getChunks(int [,,] array, int chunkSize) {
+	private T [,,][,,] getChunks<T>(T [,,] array, int chunkSize) {
 		int arrayX = array.GetLength (0);
 		int arrayY = array.GetLength (1);
 		int arrayZ = array.GetLength (2);
 		int chunkMaxX = Mathf.CeilToInt ((float)arrayX / chunkSize);
 		int chunkMaxY = Mathf.CeilToInt ((float)arrayY / chunkSize);
 		int chunkMaxZ = Mathf.CeilToInt ((float)arrayZ / chunkSize);
-		int[,,][,,] returnValue = new int[chunkMaxX, chunkMaxY, chunkMaxZ][,,];
+		T[,,][,,] returnValue = new T[chunkMaxX, chunkMaxY, chunkMaxZ][,,];
 		int x, y, z, chunkX, chunkY, chunkZ, arrX, arrY, arrZ;
-		bool isOutOfBounds;
 		for (chunkX = 0; chunkX < chunkMaxX; chunkX++) {
+			arrX = (chunkX == chunkMaxX - 1) ? arrayX % chunkSize: chunkSize;
 			for (chunkY = 0; chunkY < chunkMaxY; chunkY++) {
+				arrY = (chunkY == chunkMaxY - 1) ? arrayY % chunkSize: chunkSize;
 				for (chunkZ = 0; chunkZ < chunkMaxZ; chunkZ++) {
-					returnValue [chunkX, chunkY, chunkZ] = new int[chunkSize, chunkSize, chunkSize];
-					for (x = 0; x < chunkSize; x++) {
-						for (y = 0; y < chunkSize; y++) {
-							for (z = 0; z < chunkSize; z++) {
-								arrX = chunkX * chunkSize + x;
-								arrY = chunkY * chunkSize + y;
-								arrZ = chunkZ * chunkSize + z;
-								isOutOfBounds = arrX >= arrayX || arrY >= arrayY || arrZ >= arrayZ;
-								returnValue [chunkX, chunkY, chunkZ] [x, y, z] = isOutOfBounds ? 0 : array [arrX, arrY, arrZ];
+					arrZ = (chunkZ == chunkMaxZ - 1) ? arrayZ % chunkSize: chunkSize;
+					returnValue [chunkX, chunkY, chunkZ] = new T[arrX, arrY, arrZ];
+					for (x = 0; x < arrX; x++) {
+						for (y = 0; y < arrY; y++) {
+							for (z = 0; z < arrZ; z++) {
+								returnValue [chunkX, chunkY, chunkZ] [x, y, z] = array [chunkX * chunkSize + x, chunkY * chunkSize + y, chunkZ * chunkSize + z];
 							}
 						}
 					}
